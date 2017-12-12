@@ -17,18 +17,21 @@ int Selected[MAXPLAYERS + 1] = {-1, ...};
 int TagCount;
 
 char sTagName[MAX_TAG_COUNT+1][PLATFORM_MAX_PATH + 1];
+char name_required[512];
 
 Handle tag_cookie;
 Handle tag_menu;
 
 float g_fLastChatMsg[MAXPLAYERS + 1];
 
+ConVar Cvar_name;
+
 public Plugin myinfo =
 {
-	name = "[CS:GO] Client Tags For ARENA.1TAP.RO",
+	name = "[CS:GO] Client Tags",
 	author = "Kento",
-	version = "1.0",
-	description = "Client Tags For ARENA.1TAP.RO",
+	version = "1.1",
+	description = "Fuck you reseller ARENA.1TAP.RO",
 	url = "http://steamcommunity.com/id/kentomatoryoshika/"
 };
 
@@ -46,6 +49,16 @@ public void OnPluginStart()
 	LoadTranslations("kento.tags.phrases");
 	
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
+	
+	Cvar_name = CreateConVar("sm_tag_name", "", "Name required to use the tag, blank = disabled");
+	Cvar_name.AddChangeHook(OnCvarChange);
+	
+	AutoExecConfig();
+	
+	for(int i = 1; i <= MaxClients; i++)
+	{ 
+		if(IsValidClient(i) && !IsFakeClient(i))	OnClientCookiesCached(i);
+	}
 }
 
 public void OnMapStart()
@@ -55,6 +68,7 @@ public void OnMapStart()
 
 public void OnConfigsExecuted()
 {
+	Cvar_name.GetString(name_required, sizeof(name_required));
 	LoadConfig();
 }
 
@@ -73,7 +87,7 @@ void LoadConfig()
 	char line[PLATFORM_MAX_PATH + 1];
 	
 	TagCount = 1;
-	strcopy(sTagName[TagCount], sizeof(sTagName[]), "YOUTUBER");
+	//strcopy(sTagName[TagCount], sizeof(sTagName[]), "YOUTUBER");
 	TagCount++;
 	
 	while (ReadFileLine(fileh, line, sizeof(line)))
@@ -92,7 +106,7 @@ void LoadConfig()
 	CloseHandle(fileh);
 }
 
-public void CacheClientCookie(int client)
+public void OnClientCookiesCached(int client)
 {
 	if(!IsValidClient(client) && IsFakeClient(client))
 		return;
@@ -106,7 +120,13 @@ public void CacheClientCookie(int client)
 		int icookie = StringToInt(scookie);
 		Selected[client] = icookie;
 	}
+	else
+	{
+		Selected[client] = 0;
+		SetClientCookie(client, tag_cookie, "0");
+	}
 	
+	/*
 	// Player join this server first time and he is NOT youtuber
 	if(StrEqual(scookie,"") && !IsYoutuber(client))
 	{
@@ -120,14 +140,14 @@ public void CacheClientCookie(int client)
 		Selected[client] = 1;
 		SetClientCookie(client, tag_cookie, "1");
 	}
+	*/
 }
 
 public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	for(int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i))
-			CPrintToChat(i, "%T", "Advert", i);
+		if (IsValidClient(i) && !IsFakeClient(i))	CPrintToChat(i, "%T", "Advert", i);
 	}
 }
 
@@ -149,8 +169,7 @@ public Action Command_Tag(int client,int args)
 			Format(notag, sizeof(notag), "%T", "NO Tag", client);
 			AddMenuItem(tag_menu, "0", notag);
 			
-			if(IsYoutuber(client))
-				AddMenuItem(tag_menu, "1", sTagName[1]);
+			//if(IsYoutuber(client))	AddMenuItem(tag_menu, "1", sTagName[1]);
 			
 			// Add tag
 			for(int i = 2; i < TagCount; i++)
@@ -162,7 +181,6 @@ public Action Command_Tag(int client,int args)
 		
 			DisplayMenu(tag_menu, client, 0);
 		}
-		
 		else CPrintToChat(client, "%T", "Please Add", client);
 	
 	}
@@ -177,15 +195,9 @@ public int TAGMenuHandler(Menu menu, MenuAction action, int client,int param)
 		GetMenuItem(menu, param, stag_id, sizeof(stag_id));
 		
 		int itag_id = StringToInt(stag_id, sizeof(stag_id));
-		if(itag_id == 0)	
-		{
-			CPrintToChat(client, "%T", "You Removed", client);
-		}
 		
-		if(itag_id > 0)
-		{
-			CPrintToChat(client, "%T", "You Tag Is", client, sTagName[itag_id]);
-		}
+		if(itag_id == 0)	CPrintToChat(client, "%T", "You Removed", client);
+		else if(itag_id > 0)	CPrintToChat(client, "%T", "You Tag Is", client, sTagName[itag_id]);
 
 		Selected[client] = itag_id;
 		SetClientCookie(client, tag_cookie, stag_id);
@@ -197,10 +209,7 @@ public Action SetClanTag(Handle timer, any client)
 {
 	for(int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i))
-		{
-			CreateTimer(0.0, SetClanTag2, i, TIMER_FLAG_NO_MAPCHANGE);
-		}
+		if (IsValidClient(i) && !IsFakeClient(i))	CreateTimer(0.1, SetClanTag2, i, TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
@@ -210,10 +219,7 @@ public Action SetClanTag2(Handle timer, any client)
 	{
 		int tag = Selected[client];
 		
-		if(IsNameGold(client) && tag > 0)
-		{
-			CS_SetClientClanTag(client, sTagName[tag]);
-		}
+		if(IsNameGold(client) && tag > 0)	CS_SetClientClanTag(client, sTagName[tag]);
 		//else CS_SetClientClanTag(client, "");
 	}
 }
@@ -362,12 +368,10 @@ public Action ChatSay(int client, const char[] command, int args)
 	return Plugin_Continue;
 }
 
-public void OnClientPostAdminCheck(int client)
+public void OnClientPutInServer(int client)
 {
 	g_fLastChatMsg[client] = 0.0;
-	
-	if(AreClientCookiesCached(client))
-		CacheClientCookie(client);
+	if (IsValidClient(client) && !IsFakeClient(client))	OnClientCookiesCached(client);
 }
 
 stock bool IsValidClient(int client)
@@ -382,14 +386,29 @@ bool IsNameGold(int client)
 {
 	char clientname [PLATFORM_MAX_PATH];
 	GetClientName(client, clientname, sizeof(clientname));
- 
-	if(StrContains(clientname, "ARENA.1TAP.RO", false) != -1)
+
+	// name required is blank, everyone can use it
+	if (StrEqual(name_required, "") || StrEqual(name_required, " "))	return true;
+	// not balnk, check players' name
+	else
 	{
-		return true;
+		if(StrContains(clientname, name_required, false) != -1)
+		{
+			return true;
+		}
+		else return false;
 	}
-	else return false;
 }
 
+public void OnCvarChange(ConVar convar, char[] oldValue, char[] newValue)
+{
+	if (convar == Cvar_name)
+	{
+		Cvar_name.GetString(name_required, sizeof(name_required));
+	}
+}
+
+/*
 //abcfn
 bool IsYoutuber(int client)
 {
@@ -402,7 +421,7 @@ bool IsYoutuber(int client)
 
 	else return false;
 }
-
+*/
 /*
 "reservation"	"a"			//Reserved slots
 		"generic"		"b"			//Generic admin, required for admins
