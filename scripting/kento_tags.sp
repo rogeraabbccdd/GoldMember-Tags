@@ -30,7 +30,7 @@ public Plugin myinfo =
 {
 	name = "[CS:GO] Client Tags",
 	author = "Kento",
-	version = "1.1",
+	version = "1.1.1",
 	description = "Fuck you reseller ARENA.1TAP.RO",
 	url = "http://steamcommunity.com/id/kentomatoryoshika/"
 };
@@ -147,7 +147,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 {
 	for(int i = 1; i <= MaxClients; i++)
 	{
-		if (IsValidClient(i) && !IsFakeClient(i))	CPrintToChat(i, "%T", "Advert", i);
+		if (IsValidClient(i) && !IsFakeClient(i))	CPrintToChat(i, "%T", "Advert", i, name_required);
 	}
 }
 
@@ -181,7 +181,7 @@ public Action Command_Tag(int client,int args)
 		
 			DisplayMenu(tag_menu, client, 0);
 		}
-		else CPrintToChat(client, "%T", "Please Add", client);
+		else CPrintToChat(client, "%T", "Please Add", client, name_required);
 	
 	}
 	return Plugin_Handled;
